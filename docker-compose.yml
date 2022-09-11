@@ -1,0 +1,10 @@
+version: "3"
+services:
+  arya:
+    image: "ajeep/arya:test"
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8270:8080"
