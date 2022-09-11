@@ -1,31 +1,79 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
-name: Node.js CI
+name: arya-autobuild
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  build:
-
+  build_test:
+    name: Build & Test App
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [12.x, 14.x, 16.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node-version: [14.x]
 
+    # Run build and test only if the commit message says build app
+    #if: "contains(github.event.commits[0].message, '[build app]')"
+    
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: setup node
+        uses: actions/setup-node@master
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # install applicaion dependencies
+      - name: Install dependencies
+        run: |
+          env PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true yarn
+      # build and test the apps     
+      - name: build & test
+        run: |
+          yarn build
+
+  push_to_Docker_Hub:
+      name: Push Images to DockerHub
+      # The type of runner that the job will run on
+      runs-on: ubuntu-latest
+      # build docker image and push to docker hub only if the app build and test successfully
+      needs: [build_test]
+
+      steps:
+        - name: checkout repo
+          uses: actions/checkout@v2
+
+        - name: Set up QEMU
+          uses: docker/setup-qemu-action@v1
+      
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v1
+
+        - name: Login to DockerHub
+          uses: docker/login-action@v1
+          with:
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+        - name: Build and push
+          uses: docker/build-push-action@v2
+          with:
+            context: ./
+            file: ./Dockerfile
+            push: true
+            tags: ${{ secrets.DOCKERHUB_USERNAME }}/arya:test
+          
+        - name: Run the image in a container
+          uses: addnab/docker-run-action@v3
+          with:
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/arya:test
+            run: |
+              echo "runing the docker image"
+              echo "Testing the nodejs  app endpoints"
+              echo ${{ steps.docker_build.outputs.digest }}
