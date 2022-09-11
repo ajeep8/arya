@@ -29,9 +29,9 @@ jobs:
       - name: Install dependencies
         run: |
           env PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true yarn
-      - name: build & test
-        run: |
-          env PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true yarn build
+          #- name: build & test
+          #run: |
+          #env PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true yarn build
 
   push_to_Docker_Hub:
       name: Push Images to DockerHub
